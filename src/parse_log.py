@@ -70,8 +70,9 @@ def nmea_to_csv(nmea_data, filename):
                 # write the calculated/formatted values of the row that we just read into the csv file
                 writer.writerow([date_and_time, lat, lon, speed])
 
+
 input_directory = 'data'
-input_filename = 'gnss_log_2020_12_14_17_52_46.txt' 
+input_filename = 'gnss_log_2020_12_14_17_52_46.txt'
 
 with open(os.path.join(input_directory, input_filename)) as csvfile:
     reader = csv.reader(csvfile)
@@ -90,6 +91,8 @@ nmea_data = data.pop('NMEA')
 
 for key, values in data.items():
     data[key] = pd.DataFrame(values[1:], columns=values[0])
-    data[key].to_csv(os.path.join(input_directory, key + input_filename[:-4] + '.csv'), index = False)
+    data[key].to_csv(os.path.join(input_directory, key +
+                                  input_filename[:-4] + '.csv'), index=False)
 
-nmea_to_csv(nmea_data, os.path.join(input_directory, 'NMEA' + input_filename[:-4] + '.csv'))
+nmea_to_csv(nmea_data, os.path.join(input_directory,
+                                    'NMEA' + input_filename[:-4] + '.csv'))

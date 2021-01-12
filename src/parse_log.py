@@ -71,28 +71,38 @@ def nmea_to_csv(nmea_data, filename):
                 writer.writerow([date_and_time, lat, lon, speed])
 
 
-input_directory = 'data'
-input_filename = 'gnss_log_2020_12_14_17_52_46.txt'
+def parse_log_file(filepath):
+    filepath = os.path.split(filepath)
+    input_directory = filepath[0]
+    input_filename = filepath[1]
+    input_filename_noext = os.path.splitext(input_filename)[0]
+    with open(os.path.join(input_directory, input_filename)) as csvfile:
+        reader = csv.reader(csvfile)
+        data = {'NMEA': []}
+        for row in reader:
+            if row[0][0] == '#':
+                if 'Version' in row[0] or 'Header' in row[0] or len(row[0]) == 2:
+                    pass
+                elif len(row[0]) > 1:
+                    data[row[0][2:]] = [row[1:]]
+            else:
+                data[row[0]].append(row[1:])
 
-with open(os.path.join(input_directory, input_filename)) as csvfile:
-    reader = csv.reader(csvfile)
-    data = {'NMEA': []}
-    for row in reader:
-        if row[0][0] == '#':
-            if 'Version' in row[0] or 'Header' in row[0] or len(row[0]) == 2:
-                pass
-            elif len(row[0]) > 1:
-                data[row[0][2:]] = [row[1:]]
-        else:
-            data[row[0]].append(row[1:])
+
+    nmea_data = data.pop('NMEA')
+
+    output_directory = os.path.join(input_directory, input_filename_noext)
+    os.mkdir(output_directory)
 
 
-nmea_data = data.pop('NMEA')
+    for key, values in data.items():
+        data[key] = pd.DataFrame(values[1:], columns=values[0])
+        data[key].to_csv(os.path.join(output_directory, key + '.csv'), index=False)
 
-for key, values in data.items():
-    data[key] = pd.DataFrame(values[1:], columns=values[0])
-    data[key].to_csv(os.path.join(input_directory, key +
-                                  input_filename[:-4] + '.csv'), index=False)
+    nmea_to_csv(nmea_data, os.path.join(output_directory,
+                                        'NMEA.csv'))
 
-nmea_to_csv(nmea_data, os.path.join(input_directory,
-                                    'NMEA' + input_filename[:-4] + '.csv'))
+if __name__ == '__main__':
+    input_filepath ='/home/johnsonmitchelld/dev/pynav/data/personal/gnss_log_2020_12_14_17_52_46.txt'
+    parse_log_file(input_filepath)
+

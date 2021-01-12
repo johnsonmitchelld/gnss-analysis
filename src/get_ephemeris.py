@@ -3,7 +3,7 @@ import ftplib
 import gzip
 import shutil
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import georinex as gr
 import xarray
 import unlzw3
@@ -26,7 +26,7 @@ class EphemerisManager():
         
     def get_ephemeris(self, timestamp, satellites=None):
         systems = EphemerisManager.get_constellations(satellites)
-        if not self.data:
+        if not isinstance(self.data, pd.DataFrame):
             self.load_data(timestamp)
         data = self.data
         if satellites:
@@ -88,12 +88,13 @@ class EphemerisManager():
             'igs.bkg.bund.de', directory, filename, secure=False)
         data = data.append(data_list, ignore_index=True)
         data.reset_index(inplace=True)
+        
         self.data = data
 
     @staticmethod
     def get_filetype(timestamp):
         # IGS switched from .Z to .gz compression format on December 1st, 2020
-        if timestamp >= datetime(2020, 12, 1, 0, 0, 0):
+        if timestamp >= datetime(2020, 12, 1, 0, 0, 0, tzinfo=timezone.utc):
             extension = '.gz'
         else:
             extension = '.Z'
@@ -110,7 +111,7 @@ class EphemerisManager():
                 
     @staticmethod
     def get_constellations(satellites):
-        if satellites:
+        if type(satellites) is list:
             systems = set()
             for sat in satellites:
                 systems.add(sat[0])
@@ -139,6 +140,7 @@ class EphemerisManager():
         data.dropna(how='all', inplace=True)
         data.reset_index(inplace=True)
         data['source'] = decompressed_filename
+        data['time'] = data['time'].dt.tz_localize('UTC')
         return data
 
     def get_file(self, url, directory, filename, dest_filepath, secure=False):
@@ -186,9 +188,5 @@ class EphemerisManager():
 if __name__ == '__main__':
     repo = EphemerisManager()
     target_time = datetime.utcnow()
-    target_time = datetime(2021,1, 5, 12, 0, 0)
+    target_time = datetime(2021,1, 5, 12, 0, 0, tzinfo = timezone.utc)
     data = repo.get_ephemeris(target_time)
-    repo.listdir('gdc.cddis.eosdis.nasa.gov', 'gnss/data/hourly/2021', secure=True)
-
-    repo.listdir('gdc.cddis.eosdis.nasa.gov', 'gnss/data/daily/2021', secure=True)
-    repo.listdir('gdc.cddis.eosdis.nasa.gov', 'gnss/data/daily/2021/brdc', secure=True)

@@ -1,1 +1,1 @@
-from .ephemeris import EphemerisManager
+import gnssutils.ephemeris_manager

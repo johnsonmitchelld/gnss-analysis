@@ -8,6 +8,7 @@ import georinex
 import xarray
 import unlzw3
 import pandas as pd
+import numpy as np
 
 
 class EphemerisManager():
@@ -103,6 +104,9 @@ class EphemerisManager():
         data.dropna(how='all', inplace=True)
         data.reset_index(inplace=True)
         data['source'] = decompressed_filename
+        WEEKSEC = 604800
+        data['t_oc'] = pd.to_numeric(data['time'] - datetime(1980, 1, 6, 0, 0, 0))
+        data['t_oc']  = 1e-9 * data['t_oc'] - WEEKSEC * np.floor(1e-9 * data['t_oc'] / WEEKSEC)
         data['time'] = data['time'].dt.tz_localize('UTC')
         data.rename(columns={'M0': 'M_0', 'Eccentricity': 'e', 'Toe': 't_oe', 'DeltaN': 'deltaN', 'Cuc': 'C_uc', 'Cus': 'C_us',
                              'Cic': 'C_ic', 'Crc': 'C_rc', 'Cis': 'C_is', 'Crs': 'C_rs', 'Io': 'i_0', 'Omega0': 'Omega_0'}, inplace=True)
@@ -135,6 +139,10 @@ class EphemerisManager():
             return systems
         else:
             return None
+
+    @staticmethod
+    def calculate_toc(timestamp):
+        pass
 
     def retrieve_file(self, url, directory, filename, dest_filepath, secure=False):
         print('Retrieving ' + directory + '/' + filename + ' from ' + url)
@@ -239,4 +247,4 @@ class EphemerisManager():
 if __name__ == '__main__':
     repo = EphemerisManager()
     target_time = datetime(2021, 1, 9, 12, 0, 0, tzinfo=timezone.utc)
-    data = repo.get_ephemeris(target_time, ['G01', 'G03', 'R01', 'E01'])
+    data = repo.get_ephemeris(target_time, ['G01', 'G03'])

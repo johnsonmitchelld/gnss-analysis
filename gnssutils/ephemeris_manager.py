@@ -28,14 +28,15 @@ class EphemerisManager():
         if satellites:
             data = data.loc[data['sv'].isin(satellites)]
         data = data.loc[data['time'] < timestamp]
-        data = data.sort_values('time').groupby('sv').last().drop('index', 'columns')
+        data = data.sort_values('time').groupby(
+            'sv').last().drop('index', 'columns')
         data['Leap Seconds'] = self.leapseconds
         return data
 
     def get_leapseconds(self, timestamp):
         return self.leapseconds
 
-    def load_data(self, timestamp, constellations = None):
+    def load_data(self, timestamp, constellations=None):
         filepaths = EphemerisManager.get_filepaths(timestamp)
         data_list = []
         timestamp_age = datetime.now(timezone.utc) - timestamp
@@ -48,15 +49,20 @@ class EphemerisManager():
             legacy_systems_only = len(constellations - legacy_systems) == 0
             if timestamp_age.days > 0:
                 if legacy_systems_only:
-                    data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_gps']))
+                    data_list.append(self.get_ephemeris_dataframe(
+                        filepaths['nasa_daily_gps']))
                     if 'R' in constellations:
-                        data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_glonass']))
+                        data_list.append(self.get_ephemeris_dataframe(
+                            filepaths['nasa_daily_glonass']))
                 else:
-                    data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_combined']))
+                    data_list.append(self.get_ephemeris_dataframe(
+                        filepaths['nasa_daily_combined']))
             else:
-                data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_gps']))
+                data_list.append(self.get_ephemeris_dataframe(
+                    filepaths['nasa_daily_gps']))
                 if not legacy_systems_only:
-                    data_list.append(self.get_ephemeris_dataframe(filepaths['bkg_daily_combined']))
+                    data_list.append(self.get_ephemeris_dataframe(
+                        filepaths['bkg_daily_combined']))
 
         data = pd.DataFrame()
         data = data.append(data_list, ignore_index=True)
@@ -80,7 +86,8 @@ class EphemerisManager():
             else:
                 secure = False
             try:
-                self.retrieve_file(url, directory, filename, dest_filepath, secure)
+                self.retrieve_file(url, directory, filename,
+                                   dest_filepath, secure)
                 self.decompress_file(dest_filepath)
             except ftplib.error_perm as err:
                 print('ftp error')
@@ -90,13 +97,15 @@ class EphemerisManager():
                 decompressed_filename)
         if constellations:
             data = georinex.load(decompressed_filename,
-                           use=constellations).to_dataframe()
+                                 use=constellations).to_dataframe()
         else:
             data = georinex.load(decompressed_filename).to_dataframe()
         data.dropna(how='all', inplace=True)
         data.reset_index(inplace=True)
         data['source'] = decompressed_filename
         data['time'] = data['time'].dt.tz_localize('UTC')
+        data.rename(columns={'M0': 'M_0', 'Eccentricity': 'e', 'Toe': 't_oe', 'DeltaN': 'deltaN', 'Cuc': 'C_uc', 'Cus': 'C_us',
+                             'Cic': 'C_ic', 'Crc': 'C_rc', 'Cis': 'C_is', 'Crs': 'C_rs', 'Io': 'i_0', 'Omega0': 'Omega_0'}, inplace=True)
         return data
 
     @staticmethod

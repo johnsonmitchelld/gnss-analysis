@@ -4,7 +4,7 @@ import gzip
 import shutil
 import os
 from datetime import datetime, timedelta, timezone
-import georinex as gr
+import georinex
 import xarray
 import unlzw3
 import pandas as pd
@@ -13,31 +13,51 @@ import pandas as pd
 class EphemerisManager():
     def __init__(self, data_directory=os.path.join(os.getcwd(), 'data', 'ephemeris')):
         self.data_directory = data_directory
+        nasa_dir = os.path.join(data_directory, 'nasa')
+        igs_dir = os.path.join(data_directory, 'igs')
+        os.makedirs(nasa_dir, exist_ok=True)
+        os.makedirs(igs_dir, exist_ok=True)
         self.data = None
         self.leapseconds = None
-        self.downloadtime = None
 
     def get_ephemeris(self, timestamp, satellites):
         systems = EphemerisManager.get_constellations(satellites)
         if not isinstance(self.data, pd.DataFrame):
-            self.load_data(timestamp)
+            self.load_data(timestamp, systems)
         data = self.data
         if satellites:
             data = data.loc[data['sv'].isin(satellites)]
         data = data.loc[data['time'] < timestamp]
-        data = data.sort_values('time').groupby('sv').last()
+        data = data.sort_values('time').groupby('sv').last().drop('index', 'columns')
         data['Leap Seconds'] = self.leapseconds
         return data
 
     def get_leapseconds(self, timestamp):
         return self.leapseconds
 
-    def load_data(self, timestamp):
+    def load_data(self, timestamp, constellations = None):
         filepaths = EphemerisManager.get_filepaths(timestamp)
         data_list = []
-        for fileinfo in filepaths.values():
-            data = self.get_ephemeris_dataframe(fileinfo)
-            data_list.append(data)
+        timestamp_age = datetime.now(timezone.utc) - timestamp
+        if constellations == None:
+            for fileinfo in filepaths.values():
+                data = self.get_ephemeris_dataframe(fileinfo)
+                data_list.append(data)
+        else:
+            legacy_systems = set(['G', 'R'])
+            legacy_systems_only = len(constellations - legacy_systems) == 0
+            if timestamp_age.days > 0:
+                if legacy_systems_only:
+                    data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_gps']))
+                    if 'R' in constellations:
+                        data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_glonass']))
+                else:
+                    data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_combined']))
+            else:
+                data_list.append(self.get_ephemeris_dataframe(filepaths['nasa_daily_gps']))
+                if not legacy_systems_only:
+                    data_list.append(self.get_ephemeris_dataframe(filepaths['bkg_daily_combined']))
+
         data = pd.DataFrame()
         data = data.append(data_list, ignore_index=True)
         data.reset_index(inplace=True)
@@ -60,18 +80,19 @@ class EphemerisManager():
             else:
                 secure = False
             try:
-                self.retrieve_file(url, directory, filename, dest_filepath)
+                self.retrieve_file(url, directory, filename, dest_filepath, secure)
                 self.decompress_file(dest_filepath)
             except ftplib.error_perm as err:
+                print('ftp error')
                 return pd.DataFrame()
         if not self.leapseconds:
             self.leapseconds = EphemerisManager.load_leapseconds(
                 decompressed_filename)
         if constellations:
-            data = gr.load(decompressed_filename,
+            data = georinex.load(decompressed_filename,
                            use=constellations).to_dataframe()
         else:
-            data = gr.load(decompressed_filename).to_dataframe()
+            data = georinex.load(decompressed_filename).to_dataframe()
         data.dropna(how='all', inplace=True)
         data.reset_index(inplace=True)
         data['source'] = decompressed_filename
@@ -107,6 +128,7 @@ class EphemerisManager():
             return None
 
     def retrieve_file(self, url, directory, filename, dest_filepath, secure=False):
+        print('Retrieving ' + directory + '/' + filename + ' from ' + url)
         ftp = self.connect(url, secure)
         src_filepath = directory + '/' + filename
         try:
@@ -114,7 +136,7 @@ class EphemerisManager():
                 ftp.retrbinary(
                     'RETR ' + src_filepath, handle.write)
         except ftplib.error_perm as err:
-            print('Attempted to retrieve ' + src_filepath + ' from ' + url)
+            print('Failed to retrieve ' + src_filepath + ' from ' + url)
             print(err)
             os.remove(dest_filepath)
             raise ftplib.error_perm
@@ -207,8 +229,5 @@ class EphemerisManager():
 
 if __name__ == '__main__':
     repo = EphemerisManager()
-    target_time = datetime.utcnow()
-    target_time = datetime(2021, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
-    paths = repo.get_filepaths(target_time)
-    data = repo.get_ephemeris_dataframe(paths['nasa_daily_gps'])
-    data.sort_values('time', ignore_index=True, inplace=True)
+    target_time = datetime(2021, 1, 9, 12, 0, 0, tzinfo=timezone.utc)
+    data = repo.get_ephemeris(target_time, ['G01', 'G03', 'R01', 'E01'])

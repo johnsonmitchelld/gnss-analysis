@@ -193,19 +193,6 @@ class EphemerisManager():
         extension = EphemerisManager.get_filetype(timestamp)
         filepaths = {}
 
-        directory = 'gnss/data/hourly/' + \
-            str(timetuple.tm_year) + '/' + \
-            str(timetuple.tm_yday).zfill(3) + '/'
-        filename = 'hour' + str(timetuple.tm_yday).zfill(3) + \
-            '0.' + str(timetuple.tm_year)[-2:] + 'g' + extension
-        filepaths['nasa_hourly_glonass'] = {
-            'filepath': directory + filename, 'url': 'gdc.cddis.eosdis.nasa.gov'}
-
-        filename = 'hour' + str(timetuple.tm_yday).zfill(3) + \
-            '0.' + str(timetuple.tm_year)[-2:] + 'n' + extension
-        filepaths['nasa_hourly_gps'] = {
-            'filepath': directory + filename, 'url': 'gdc.cddis.eosdis.nasa.gov'}
-
         directory = 'gnss/data/daily/' + str(timetuple.tm_year) + '/brdc/'
         filename = 'BRDC00IGS_R_' + \
             str(timetuple.tm_year) + \
@@ -232,15 +219,6 @@ class EphemerisManager():
         filepaths['bkg_daily_combined'] = {
             'filepath': directory + filename, 'url': 'igs.bkg.bund.de'}
 
-        filename = 'brdc' + str(timetuple.tm_yday).zfill(3) + \
-            '0.' + str(timetuple.tm_year)[-2:] + 'n' + extension
-        filepaths['bkg_daily_gps'] = {
-            'filepath': directory + filename, 'url': 'igs.bkg.bund.de'}
-
-        filename = 'brdc' + str(timetuple.tm_yday).zfill(3) + \
-            '0.' + str(timetuple.tm_year)[-2:] + 'g' + extension
-        filepaths['bkg_daily_gps'] = {
-            'filepath': directory + filename, 'url': 'igs.bkg.bund.de'}
         return filepaths
 
 
